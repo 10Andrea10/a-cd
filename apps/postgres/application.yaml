@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cnpg-cluster
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://cloudnative-pg.github.io/charts
+    chart: cluster
+    targetRevision: 0.6.1
+    # https://artifacthub.io/packages/helm/cloudnative-pg/cluster
+    helm:
+      releaseName: postgres
+      valuesObject:
+        type: postgresql
+        mode: standalone
+
+        version:
+          postgresql: "16"
+
+        cluster:
+          instances: 1
+          storage:
+            size: 4Gi
+          roles:
+            - name: litellm
+              ensure: present
+              login: true
+              passwordSecret:
+                name: litellm-credentials
+
+        backups:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cnpg-database
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cnpg-databases
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/10Andrea10/a-cd.git
+    targetRevision: main
+    path: apps/postgres/database
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cnpg-database
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
